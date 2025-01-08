@@ -90,3 +90,33 @@ func TestParseStep2(t *testing.T) {
 		t.Log(string(jsonString) + " is not a valid json")
 	})
 }
+
+func TestParseStep3(t *testing.T) {
+
+	t.Run("valid", func(t *testing.T) {
+		jsonString, err := os.ReadFile("tests/step3/valid.json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		_, err = parser.Parse(string(jsonString))
+		if err != nil {
+			t.Error(err)
+
+		}
+		t.Log("{} is a valid json")
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		jsonString, err := os.ReadFile("tests/step3/invalid.json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		_, err = parser.Parse(string(jsonString))
+		if err == nil {
+			t.Error("invalid json is not detected")
+		}
+		t.Log("empty is not a valid json")
+	})
+}
