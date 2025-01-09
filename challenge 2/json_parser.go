@@ -44,6 +44,52 @@ func findString(json string, start int) (int, string, error) {
 }
 func findValue(json string, start int) (int, any, error) {
 	i := start
+	// Object
+	if json[i] == '{' {
+		closingBracketIndex := len(json) - 1
+		for {
+			closingBracketIndex = strings.Index(json[i:closingBracketIndex+1], "}") + i
+			if closingBracketIndex == -1 {
+				return -1, "", errors.New("non closing object")
+			}
+			if !strings.Contains(json[i+1:closingBracketIndex], "{") {
+				// closing bracket found
+				break
+			}
+		}
+		objVal, err := Parse(json[i : closingBracketIndex+1])
+		if err != nil {
+			return -1, "", err
+		}
+		return closingBracketIndex + 1, objVal, nil
+	}
+	// Array
+	if json[i] == '[' {
+		if json[i+1] == ']' {
+			return i + 2, make([]any, 0), nil
+		}
+		closingBracketIndex := len(json) - 1
+		for {
+			closingBracketIndex = strings.Index(json[i:closingBracketIndex+1], "]") + i
+			if closingBracketIndex == -1 {
+				return -1, "", errors.New("non closing array")
+			}
+			if !strings.Contains(json[i+1:closingBracketIndex], "[") {
+				// closing bracket found
+				break
+			}
+		}
+		parts := strings.Split(json[i+1:closingBracketIndex], ",")
+		arrayVal := make([]any, len(parts))
+		var err error
+		for index, element := range parts {
+			_, arrayVal[index], err = findValue(element, 0)
+			if err != nil {
+				return -1, "", err
+			}
+		}
+		return closingBracketIndex + 1, arrayVal, nil
+	}
 	// string value
 	if json[i] == '"' {
 		i++
@@ -86,14 +132,13 @@ func findValue(json string, start int) (int, any, error) {
 			return i + 4, nil, nil
 		}
 	}
-
 	// number value
 	val := ""
 	for {
 		if i >= len(json) {
 			return -1, "", errors.New("invalid json")
 		}
-		if unicode.IsSpace(rune(json[i])) {
+		if unicode.IsSpace(rune(json[i])) || json[i] == ',' || json[i] == '}' || json[i] == ']' {
 			break
 		}
 		val += string(json[i])
@@ -104,24 +149,40 @@ func findValue(json string, start int) (int, any, error) {
 		if err != nil {
 			return -1, "", errors.New("invalid value " + val + " : " + err.Error())
 		}
-		return i + 1, fval, nil
+		return i, fval, nil
 	}
-
 	Ival, err := strconv.Atoi(val)
 	if err != nil {
 		return -1, "", errors.New("invalid value " + val + " : " + err.Error())
 	}
-	return i + 1, Ival, nil
+	return i, Ival, nil
 }
 
-func Parse(json string) (map[string]interface{}, error) {
+func Parse(json string) (any, error) {
 	json = strings.TrimSpace(json)
 	if len(json) == 0 {
 		return nil, errors.New("empty file")
 	}
+	if json == "{}" {
+		return make(map[string]any, 0), nil
+	}
 	// neither an object nor an array
 	if (json[0] != '{' || json[len(json)-1] != '}') && (json[0] != '[' || json[len(json)-1] != ']') {
 		return nil, errors.New("invalid json")
+	}
+
+	if json[0] == '[' {
+		parts := strings.Split(string(json)[1:len(json)-2], ",")
+		result := make([]any, len(parts))
+
+		var err error
+		for index, element := range parts {
+			_, result[index], err = findValue(element, 0)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
 	}
 
 	result := make(map[string]interface{})
@@ -129,11 +190,15 @@ func Parse(json string) (map[string]interface{}, error) {
 	i := 0
 	for i < jsonLength {
 
+		var err error
+		i, err = skipSpaces(json, i)
+		if err != nil {
+			return nil, err
+		}
 		// open object
 		if json[i] == '{' {
 			i++
 		}
-		var err error
 		i, err = skipSpaces(json, i)
 		if err != nil {
 			return nil, err
@@ -171,7 +236,7 @@ func Parse(json string) (map[string]interface{}, error) {
 		// either , or }
 		if json[i] != ',' {
 			if json[i] != '}' {
-				return nil, err
+				return nil, errors.New("missing }")
 			}
 		}
 		i++
