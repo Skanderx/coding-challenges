@@ -1,5 +1,0 @@
-package compressor
-
-func main() {
-
-}
