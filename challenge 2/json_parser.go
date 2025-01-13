@@ -42,6 +42,7 @@ func findString(json string, start int) (int, string, error) {
 	}
 	return i + 1, val, nil
 }
+
 func findValue(json string, start int) (int, any, error) {
 	i := start
 	// Object

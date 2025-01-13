@@ -1,0 +1,5 @@
+package compressor
+
+func main() {
+
+}
