@@ -2,7 +2,9 @@ package compressor
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"testing"
 )
 
@@ -31,6 +33,80 @@ func TestCountFrequency(t *testing.T) {
 	})
 }
 
+var freqExample = map[rune]int{
+	'C': 32,
+	'D': 42,
+	'E': 120,
+	'K': 7,
+	'L': 42,
+	'M': 24,
+	'U': 37,
+	'Z': 2,
+}
+var referenceTree = &TreeNode{
+	Freq: 306, Rune: 0,
+	Left: &TreeNode{
+		Freq: 120, Rune: 'E',
+		Left: nil, Right: nil,
+	},
+	Right: &TreeNode{
+		Freq: 186, Rune: 0,
+		Left: &TreeNode{
+			Freq: 79, Rune: 0,
+			Left: &TreeNode{
+				Freq: 37, Rune: 'U',
+				Left: nil, Right: nil,
+			},
+			Right: &TreeNode{
+				Freq: 42, Rune: 'D',
+				Left: nil, Right: nil,
+			},
+		},
+		Right: &TreeNode{
+			Freq: 107, Rune: 0,
+			Left: &TreeNode{
+				Freq: 42, Rune: 'L',
+				Left: nil, Right: nil,
+			},
+			Right: &TreeNode{
+				Freq: 65, Rune: 0,
+				Left: &TreeNode{
+					Freq: 32, Rune: 'C',
+					Left: nil, Right: nil,
+				},
+				Right: &TreeNode{
+					Freq: 33, Rune: 0,
+					Left: &TreeNode{
+						Freq: 9, Rune: 0,
+						Left: &TreeNode{
+							Freq: 2, Rune: 'Z',
+							Left: nil, Right: nil,
+						},
+						Right: &TreeNode{
+							Freq: 7, Rune: 'K',
+							Left: nil, Right: nil,
+						},
+					},
+					Right: &TreeNode{
+						Freq: 24, Rune: 'M',
+						Left: nil, Right: nil,
+					},
+				},
+			},
+		},
+	},
+}
+var referencePrefixMap = map[rune][]uint8{
+	'C': {1, 1, 1, 0},
+	'D': {1, 0, 1},
+	'E': {0},
+	'K': {1, 1, 1, 1, 0, 1},
+	'L': {1, 1, 0},
+	'M': {1, 1, 1, 1, 1},
+	'U': {1, 0, 0},
+	'Z': {1, 1, 1, 1, 0, 0},
+}
+
 func TestMakeTree(t *testing.T) {
 	data, err := os.ReadFile(TESTFILEPATH)
 	if err != nil {
@@ -51,75 +127,34 @@ func TestMakeTree(t *testing.T) {
 		}
 	})
 	t.Run("tree on example", func(t *testing.T) {
-		freq := map[rune]int{
-			'C': 32,
-			'D': 42,
-			'E': 120,
-			'K': 7,
-			'L': 42,
-			'M': 24,
-			'U': 37,
-			'Z': 2,
-		}
-		tree := makeTree(freq)
-		reference := &TreeNode{
-			Freq: 306, Rune: 0,
-			Left: &TreeNode{
-				Freq: 120, Rune: 'E',
-				Left: nil, Right: nil,
-			},
-			Right: &TreeNode{
-				Freq: 186, Rune: 0,
-				Left: &TreeNode{
-					Freq: 79, Rune: 0,
-					Left: &TreeNode{
-						Freq: 37, Rune: 'U',
-						Left: nil, Right: nil,
-					},
-					Right: &TreeNode{
-						Freq: 42, Rune: 'D',
-						Left: nil, Right: nil,
-					},
-				},
-				Right: &TreeNode{
-					Freq: 107, Rune: 0,
-					Left: &TreeNode{
-						Freq: 42, Rune: 'L',
-						Left: nil, Right: nil,
-					},
-					Right: &TreeNode{
-						Freq: 65, Rune: 0,
-						Left: &TreeNode{
-							Freq: 32, Rune: 'C',
-							Left: nil, Right: nil,
-						},
-						Right: &TreeNode{
-							Freq: 33, Rune: 0,
-							Left: &TreeNode{
-								Freq: 9, Rune: 0,
-								Left: &TreeNode{
-									Freq: 2, Rune: 'Z',
-									Left: nil, Right: nil,
-								},
-								Right: &TreeNode{
-									Freq: 7, Rune: 'K',
-									Left: nil, Right: nil,
-								},
-							},
-							Right: &TreeNode{
-								Freq: 24, Rune: 'M',
-								Left: nil, Right: nil,
-							},
-						},
-					},
-				},
-			},
-		}
-		if tree.String() != reference.String() {
-			t.Errorf("expected tree to be %v, got %v\n", reference, tree)
+
+		tree := makeTree(freqExample)
+		if tree.String() != referenceTree.String() {
+			t.Errorf("expected tree to be %v, got %v\n", referenceTree, tree)
 			fmt.Println("tree on example correct")
 		} else {
 			fmt.Println("tree on example correct")
+		}
+	})
+}
+
+func TestPrefixMap(t *testing.T) {
+	t.Run("prefix map on example", func(t *testing.T) {
+
+		prefixMap := make(map[rune][]uint8, len(freqExample))
+
+		generatePrefixCodes(&prefixMap, referenceTree, []uint8{})
+
+		if !maps.EqualFunc(prefixMap, referencePrefixMap, func(v1, v2 []uint8) bool {
+			cmpr := slices.Compare(v1, v2)
+			if cmpr != 0 {
+				t.Logf("PrefixMap() returned %v, want %v", v1, v2)
+			}
+			return cmpr == 0
+		}) {
+			t.Errorf("PrefixMap() returned %v, want %v", prefixMap, referencePrefixMap)
+		} else {
+			fmt.Println("PrefixMap() correct")
 		}
 	})
 }

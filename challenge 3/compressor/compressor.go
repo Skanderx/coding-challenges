@@ -65,6 +65,26 @@ func makeTree(freq map[rune]int) *TreeNode {
 
 	return result[0]
 }
+
+func generatePrefixCodes(prefixMap *map[rune][]uint8, node *TreeNode, edge []uint8) {
+	if node == nil {
+		return
+	}
+	if node.Rune != 0 {
+		(*prefixMap)[node.Rune] = make([]uint8, len(edge))
+		copy((*prefixMap)[node.Rune], edge)
+	}
+
+	nextEdge := make([]uint8, len(edge)+1)
+	copy(nextEdge, edge)
+
+	nextEdge[len(nextEdge)-1] = 0
+	generatePrefixCodes(prefixMap, node.Left, nextEdge)
+
+	nextEdge[len(nextEdge)-1] = 1
+	generatePrefixCodes(prefixMap, node.Right, nextEdge)
+
+}
 func Compress() (string, error) {
 
 	// Read file
@@ -79,6 +99,9 @@ func Compress() (string, error) {
 	ferequencies := countFrequency(data)
 	// Make Huffman coding tree
 	root := makeTree(ferequencies)
-	fmt.Println(root)
+
+	prefixMap := make(map[rune][]uint8, len(ferequencies))
+	generatePrefixCodes(&prefixMap, root, []uint8{})
+
 	return "", nil
 }
