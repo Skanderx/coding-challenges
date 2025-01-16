@@ -70,13 +70,12 @@ func generatePrefixCodes(prefixMap *map[rune][]uint8, node *TreeNode, edge []uin
 	if node == nil {
 		return
 	}
-	if node.Rune != 0 {
-		(*prefixMap)[node.Rune] = make([]uint8, len(edge))
-		copy((*prefixMap)[node.Rune], edge)
-	}
-
 	nextEdge := make([]uint8, len(edge)+1)
 	copy(nextEdge, edge)
+
+	if node.Rune != 0 {
+		(*prefixMap)[node.Rune] = nextEdge[:len(nextEdge)-1]
+	}
 
 	nextEdge[len(nextEdge)-1] = 0
 	generatePrefixCodes(prefixMap, node.Left, nextEdge)
@@ -85,6 +84,7 @@ func generatePrefixCodes(prefixMap *map[rune][]uint8, node *TreeNode, edge []uin
 	generatePrefixCodes(prefixMap, node.Right, nextEdge)
 
 }
+
 func Compress() (string, error) {
 
 	// Read file
