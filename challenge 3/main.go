@@ -1,7 +1,7 @@
 package main
 
 import (
-	"compressor/compressor"
+	compressor "compressor/file-compressor"
 	"fmt"
 )
 

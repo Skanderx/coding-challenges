@@ -1,6 +1,7 @@
 package compressor
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -66,11 +67,11 @@ func makeTree(freq map[rune]int) *TreeNode {
 	return result[0]
 }
 
-func generatePrefixCodes(prefixMap *map[rune][]uint8, node *TreeNode, edge []uint8) {
+func generatePrefixCodes(prefixMap *map[rune][]byte, node *TreeNode, edge []byte) {
 	if node == nil {
 		return
 	}
-	nextEdge := make([]uint8, len(edge)+1)
+	nextEdge := make([]byte, len(edge)+1)
 	copy(nextEdge, edge)
 
 	if node.Rune != 0 {
@@ -83,6 +84,22 @@ func generatePrefixCodes(prefixMap *map[rune][]uint8, node *TreeNode, edge []uin
 	nextEdge[len(nextEdge)-1] = 1
 	generatePrefixCodes(prefixMap, node.Right, nextEdge)
 
+}
+
+// fileHeader returns the header of the compressed file
+// headerformat: char1:prefix1,char2:prefix2,...,charn:prefixn,,
+func fileHeader(prefixMap *map[rune][]byte) []byte {
+
+	var buffer bytes.Buffer
+	for k, v := range *prefixMap {
+		buffer.WriteRune(k)
+		buffer.WriteRune(':')
+		buffer.Write(v)
+		buffer.WriteRune(',')
+	}
+	buffer.WriteRune(',')
+
+	return buffer.Bytes()
 }
 
 func Compress() (string, error) {
@@ -100,8 +117,18 @@ func Compress() (string, error) {
 	// Make Huffman coding tree
 	root := makeTree(ferequencies)
 
-	prefixMap := make(map[rune][]uint8, len(ferequencies))
-	generatePrefixCodes(&prefixMap, root, []uint8{})
+	prefixMap := make(map[rune][]byte, len(ferequencies))
+	generatePrefixCodes(&prefixMap, root, []byte{})
+
+	f, err := os.Create("./" + fileName + "_compressed.txt")
+	if err != nil {
+		return "", fmt.Errorf("error creating file: %w", err)
+	}
+	defer f.Close()
+	_, err = f.Write(fileHeader(&prefixMap))
+	if err != nil {
+		return "", fmt.Errorf("error writing file header: %w", err)
+	}
 
 	return "", nil
 }
