@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"slices"
 	"testing"
 )
 
@@ -96,15 +95,15 @@ var referenceTree = &TreeNode{
 		},
 	},
 }
-var referencePrefixMap = map[rune][]byte{
-	'C': {1, 1, 1, 0},
-	'D': {1, 0, 1},
-	'E': {0},
-	'K': {1, 1, 1, 1, 0, 1},
-	'L': {1, 1, 0},
-	'M': {1, 1, 1, 1, 1},
-	'U': {1, 0, 0},
-	'Z': {1, 1, 1, 1, 0, 0},
+var referencePrefixMap = map[rune]byte{
+	'C': 0b1110,
+	'D': 0b101,
+	'E': 0b0,
+	'K': 0b111101,
+	'L': 0b110,
+	'M': 0b11111,
+	'U': 0b100,
+	'Z': 0b111100,
 }
 
 func TestMakeTree(t *testing.T) {
@@ -141,17 +140,11 @@ func TestMakeTree(t *testing.T) {
 func TestPrefixMap(t *testing.T) {
 	t.Run("prefix map on example", func(t *testing.T) {
 
-		prefixMap := make(map[rune][]byte, len(freqExample))
+		prefixMap := make(map[rune]byte, len(freqExample))
 
-		generatePrefixCodes(&prefixMap, referenceTree, []byte{})
+		generatePrefixCodes(&prefixMap, referenceTree, 0)
 
-		if !maps.EqualFunc(prefixMap, referencePrefixMap, func(v1, v2 []byte) bool {
-			cmpr := slices.Compare(v1, v2)
-			if cmpr != 0 {
-				t.Logf("PrefixMap() returned %v, want %v", v1, v2)
-			}
-			return cmpr == 0
-		}) {
+		if !maps.Equal(prefixMap, referencePrefixMap) {
 			t.Errorf("PrefixMap() returned %v, want %v", prefixMap, referencePrefixMap)
 		} else {
 			fmt.Println("PrefixMap() correct")
@@ -161,8 +154,8 @@ func TestPrefixMap(t *testing.T) {
 
 func TestFileHeader(t *testing.T) {
 	t.Run("file header on example", func(t *testing.T) {
-		prefixMap := make(map[rune][]byte, len(freqExample))
-		generatePrefixCodes(&prefixMap, referenceTree, []byte{})
+		prefixMap := make(map[rune]byte, len(freqExample))
+		generatePrefixCodes(&prefixMap, referenceTree, 0)
 		header := fileHeader(&prefixMap)
 		fmt.Println(string(header))
 		// TODO create and decode header
