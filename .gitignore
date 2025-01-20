@@ -1,3 +1,5 @@
 /.vscode
 /challenge 1/test.txt
-/challenge 3/test.txt
+/challenge 3/test.txt*
+/challenge 3/compressor
+.DS*

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"golang.org/x/exp/slices"
 )
@@ -99,11 +98,8 @@ func fileHeader(prefixMap *map[rune]byte) []byte {
 	return buffer.Bytes()
 }
 
-func Compress() (string, error) {
+func Compress(fileName string) (string, error) {
 
-	// Read file
-	args := os.Args
-	fileName := filepath.Clean(args[len(args)-1])
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return "", fmt.Errorf("error reading file: %w", err)
@@ -128,9 +124,46 @@ func Compress() (string, error) {
 	}
 
 	w := bufio.NewWriter(f)
+	// Writing 8 bits at a time;
+	var buffer uint16
 
 	for _, r := range data {
-		err = w.WriteByte(prefixMap[rune(r)])
+		if buffer >= 255 {
+			// buffer	= 0bxxxxxxxx|yyyyyyyy
+			// slice	= 0byyyyyyyy => Write 8 bits at a time
+			// buffer	= 0bxxxxxxxx => leave the rest until we have 8 other bits set
+			slice := byte(buffer - buffer%255)
+			buffer = buffer % 255
+			err = w.WriteByte(slice)
+			if err != nil {
+				return "", fmt.Errorf("error writing to file: %w", err)
+			}
+		}
+		// Adding prefix_Code in queue to be written
+		// Solution without google:
+		value := prefixMap[rune(r)]
+		switch {
+		case value >= 128:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<8
+		case value >= 64:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<7
+		case value >= 32:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<6
+		case value >= 16:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<5
+		case value >= 8:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<4
+		case value >= 4:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<3
+		case value >= 2:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<2
+		default:
+			buffer = uint16(prefixMap[rune(r)]) | buffer<<1
+		}
+	}
+	if buffer > 0 {
+		slice := byte(buffer >> 8)
+		err = w.WriteByte(slice)
 		if err != nil {
 			return "", fmt.Errorf("error writing to file: %w", err)
 		}
