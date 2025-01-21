@@ -7,6 +7,10 @@ import (
 	"os"
 )
 
+const (
+	STOPSEQUENCE = "%%%%"
+)
+
 // fileHeader returns the header of the compressed file
 // headerformat: char1:prefix1,char2:prefix2,...,charn:prefixn,,
 func fileHeader(prefixMap *map[rune]byte) []byte {
@@ -14,11 +18,9 @@ func fileHeader(prefixMap *map[rune]byte) []byte {
 	var buffer bytes.Buffer
 	for k, v := range *prefixMap {
 		buffer.WriteRune(k)
-		buffer.WriteRune(':')
 		buffer.WriteByte(v)
-		buffer.WriteRune(',')
 	}
-	buffer.WriteRune(',')
+	buffer.WriteString(STOPSEQUENCE)
 
 	return buffer.Bytes()
 }

@@ -157,7 +157,16 @@ func TestFileHeader(t *testing.T) {
 		prefixMap := make(map[rune]byte, len(freqExample))
 		generatePrefixCodes(&prefixMap, referenceTree, 0)
 		header := fileHeader(&prefixMap)
-		fmt.Println(string(header))
-		// TODO create and decode header
+
+		prefixMapDecoded, err := decodeHeader(header)
+		if err != nil {
+			t.Errorf("error decoding header: %v\n", err)
+			return
+		}
+		if !maps.Equal(prefixMap, *prefixMapDecoded) {
+			t.Errorf("PrefixMap() returned %v, want %v", prefixMap, *prefixMapDecoded)
+		} else {
+			fmt.Println("PrefixMap() correct")
+		}
 	})
 }
