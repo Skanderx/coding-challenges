@@ -63,17 +63,25 @@ func makeTree(freq map[rune]int) *TreeNode {
 	return result[0]
 }
 
-func generatePrefixCodes(prefixMap *map[rune]byte, node *TreeNode, edge byte) {
+func generatePrefixCodes(prefixMap map[rune]byte, node *TreeNode, edge byte) {
 	if node == nil {
 		return
 	}
 
 	if node.Rune != 0 {
-		(*prefixMap)[node.Rune] = edge
+		prefixMap[node.Rune] = edge
 	}
 
 	generatePrefixCodes(prefixMap, node.Left, edge*2)
 
 	generatePrefixCodes(prefixMap, node.Right, edge*2+1)
 
+}
+
+func generateCodePrefixMap(prefixMap map[rune]byte) map[byte]rune {
+	codePrefixMap := make(map[byte]rune, len(prefixMap))
+	for r, b := range prefixMap {
+		codePrefixMap[b] = r
+	}
+	return codePrefixMap
 }
