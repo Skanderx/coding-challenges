@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-func decodeHeader(data []byte) (int, map[rune]byte, error) {
-	prefixMap := make(map[rune]byte, 64)
+func decodeHeader(data []byte) (int, map[byte]byte, error) {
+	prefixMap := make(map[byte]byte, 64)
 	// Header sequence = [char1 prefix1 char2 prefix2 STOPSEQUENCE]
 	startIndex := 0
 	for i := 0; i < len(data); i += 2 {
@@ -20,7 +20,7 @@ func decodeHeader(data []byte) (int, map[rune]byte, error) {
 			break
 		}
 
-		prefixMap[rune(data[i])] = data[i+1]
+		prefixMap[data[i]] = data[i+1]
 	}
 	if startIndex == 0 {
 		return -1, nil, errors.New("file header without a stop sequence")
@@ -69,7 +69,7 @@ func Decompress(fileName string) error {
 
 			if r, ok := codePrefixMap[byteSeq]; ok {
 				// sequence complete starting a new one
-				w.WriteRune(r)
+				w.WriteByte(r)
 				byteSeq = 0
 			}
 		}

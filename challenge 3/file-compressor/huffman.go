@@ -1,22 +1,23 @@
 package compressor
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"slices"
 )
 
-func countFrequency(data []byte) map[rune]int {
-	freq := make(map[rune]int)
+func countFrequency(data []byte) map[byte]int {
+	freq := make(map[byte]int)
 	for _, r := range data {
-		freq[rune(r)]++
+		freq[r]++
 	}
 	return freq
 }
 
 type TreeNode struct {
 	Freq  int       `json:"freq"`
-	Rune  rune      `json:"char"`
+	Char  byte      `json:"char"`
 	Left  *TreeNode `json:"left"`
 	Right *TreeNode `json:"right"`
 }
@@ -29,14 +30,17 @@ func (t *TreeNode) String() string {
 	}
 	return string(result)
 }
-func makeTree(freq map[rune]int) *TreeNode {
+func makeTree(freq map[byte]int) *TreeNode {
 	result := make([]*TreeNode, len(freq))
 	i := 0
 	for k, v := range freq {
-		result[i] = &TreeNode{Freq: v, Rune: k}
+		result[i] = &TreeNode{Freq: v, Char: k}
 		i++
 	}
 	slices.SortFunc(result, func(a, b *TreeNode) int {
+		if a.Freq == b.Freq {
+			return cmp.Compare(a.Char, b.Char)
+		}
 		return a.Freq - b.Freq
 	})
 	for {
@@ -63,13 +67,13 @@ func makeTree(freq map[rune]int) *TreeNode {
 	return result[0]
 }
 
-func generatePrefixCodes(prefixMap map[rune]byte, node *TreeNode, edge byte) {
+func generatePrefixCodes(prefixMap map[byte]byte, node *TreeNode, edge byte) {
 	if node == nil {
 		return
 	}
 
-	if node.Rune != 0 {
-		prefixMap[node.Rune] = edge
+	if node.Char != 0 {
+		prefixMap[node.Char] = edge
 	}
 
 	generatePrefixCodes(prefixMap, node.Left, edge*2)
@@ -78,8 +82,8 @@ func generatePrefixCodes(prefixMap map[rune]byte, node *TreeNode, edge byte) {
 
 }
 
-func generateCodePrefixMap(prefixMap map[rune]byte) map[byte]rune {
-	codePrefixMap := make(map[byte]rune, len(prefixMap))
+func generateCodePrefixMap(prefixMap map[byte]byte) map[byte]byte {
+	codePrefixMap := make(map[byte]byte, len(prefixMap))
 	for r, b := range prefixMap {
 		codePrefixMap[b] = r
 	}

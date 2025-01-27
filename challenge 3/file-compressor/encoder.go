@@ -14,11 +14,11 @@ const (
 
 // fileHeader returns the header of the compressed file
 // headerformat: char1 prefix1 char2 prefix2 ... charn prefixn STOPSEQUENCE
-func fileHeader(prefixMap map[rune]byte) []byte {
+func fileHeader(prefixMap map[byte]byte) []byte {
 
 	var buffer bytes.Buffer
 	for k, v := range prefixMap {
-		buffer.WriteRune(k)
+		buffer.WriteByte(k)
 		buffer.WriteByte(v)
 	}
 	buffer.WriteString(STOPSEQUENCE)
@@ -34,11 +34,11 @@ func Compress(fileName string) error {
 
 	}
 	// Count frequency of characters
-	ferequencies := countFrequency(data)
+	frequencies := countFrequency(data)
 	// Make Huffman coding tree
-	root := makeTree(ferequencies)
+	root := makeTree(frequencies)
 
-	prefixMap := make(map[rune]byte, len(ferequencies))
+	prefixMap := make(map[byte]byte, len(frequencies))
 	generatePrefixCodes(prefixMap, root, 0)
 
 	f, err := os.Create("./" + fileName + "_compressed.txt")
@@ -69,15 +69,14 @@ func Compress(fileName string) error {
 				}
 			}
 			// Write 8 bit slices at a time
-			// buffer	= xxxxxxMx_yyyyyyzz ;  maxBitIndex = 9
-			// slice	= ( xxxxxxMx_yyyyyyzz << ( 15 - maxBitIndex ) >> ( maxBitIndex - 7 + 15 - maxBitIndex )
-			// => slice	= (xxxxxxMx_yyyyyyzz << 6 ) >> 2 + 6
-			// => slice	= Mx_yyyyyyzz000000 >> 8
-			// => slice	= Mxyyyyyy : 8 bits
+			// buffer	= 000000yy_yyyyyyzz ;  maxBitIndex = 9
+			// slice	= ( 000000yy_yyyyyyzz >> ( maxBitIndex - 7 )
+			// => slice	= (xxxxxxMy_yyyyyyzz >> 2
+			// => slice	= 00000000Myyyyyyy : 8 bits
 			slice := buffer
-			slice <<= (15 - maxBitIndex)
-			slice >>= (maxBitIndex - 7) + (15 - maxBitIndex)
-			buffer = buffer % 256
+			slice >>= (maxBitIndex - 7)
+			// what should stay of buffer = 000000_000000zz = buffer % math.Pow(2, float64(maxBitIndex-7))
+			buffer = buffer % uint16(math.Pow(2, float64(maxBitIndex-7)))
 			err = w.WriteByte(byte(slice))
 			if err != nil {
 				return fmt.Errorf("error writing to file: %w", err)
@@ -85,28 +84,28 @@ func Compress(fileName string) error {
 		}
 		// Adding prefix_Code in queue to be written
 		// Solution without google:
-		value := prefixMap[rune(r)]
+		value := prefixMap[r]
 		switch {
 		// example
-		// 	buffer	= ( xxxxxxxx_yyyyyyyy << 3 ) | 00000aaa
-		// => buffer	= xxxxx_yyyyyyyy000 | 00000aaa
+		// 	buffer	= 00000aaa | ( xxxxxxxx_yyyyyyyy << 3 )
+		// => buffer	= 00000aaa | xxxxx_yyyyyyyy000
 		// => buffer	= xxxxx_yyyyyyyyaaa
 		case value >= 128: // 8 bit value
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<8
+			buffer = uint16(prefixMap[r]) | buffer<<8
 		case value >= 64: // 7 bit value
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<7
+			buffer = uint16(prefixMap[r]) | buffer<<7
 		case value >= 32: // 6 bit value
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<6
+			buffer = uint16(prefixMap[r]) | buffer<<6
 		case value >= 16:
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<5
+			buffer = uint16(prefixMap[r]) | buffer<<5
 		case value >= 8:
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<4
+			buffer = uint16(prefixMap[r]) | buffer<<4
 		case value >= 4:
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<3
+			buffer = uint16(prefixMap[r]) | buffer<<3
 		case value >= 2:
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<2
+			buffer = uint16(prefixMap[r]) | buffer<<2
 		default:
-			buffer = uint16(prefixMap[rune(r)]) | buffer<<1
+			buffer = uint16(prefixMap[r]) | buffer<<1
 		}
 	}
 	if buffer > 0 {

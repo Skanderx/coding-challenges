@@ -32,7 +32,7 @@ func TestCountFrequency(t *testing.T) {
 	})
 }
 
-var freqExample = map[rune]int{
+var freqExample = map[byte]int{
 	'C': 32,
 	'D': 42,
 	'E': 120,
@@ -43,51 +43,51 @@ var freqExample = map[rune]int{
 	'Z': 2,
 }
 var referenceTree = &TreeNode{
-	Freq: 306, Rune: 0,
+	Freq: 306, Char: 0,
 	Left: &TreeNode{
-		Freq: 120, Rune: 'E',
+		Freq: 120, Char: 'E',
 		Left: nil, Right: nil,
 	},
 	Right: &TreeNode{
-		Freq: 186, Rune: 0,
+		Freq: 186, Char: 0,
 		Left: &TreeNode{
-			Freq: 79, Rune: 0,
+			Freq: 79, Char: 0,
 			Left: &TreeNode{
-				Freq: 37, Rune: 'U',
+				Freq: 37, Char: 'U',
 				Left: nil, Right: nil,
 			},
 			Right: &TreeNode{
-				Freq: 42, Rune: 'D',
+				Freq: 42, Char: 'D',
 				Left: nil, Right: nil,
 			},
 		},
 		Right: &TreeNode{
-			Freq: 107, Rune: 0,
+			Freq: 107, Char: 0,
 			Left: &TreeNode{
-				Freq: 42, Rune: 'L',
+				Freq: 42, Char: 'L',
 				Left: nil, Right: nil,
 			},
 			Right: &TreeNode{
-				Freq: 65, Rune: 0,
+				Freq: 65, Char: 0,
 				Left: &TreeNode{
-					Freq: 32, Rune: 'C',
+					Freq: 32, Char: 'C',
 					Left: nil, Right: nil,
 				},
 				Right: &TreeNode{
-					Freq: 33, Rune: 0,
+					Freq: 33, Char: 0,
 					Left: &TreeNode{
-						Freq: 9, Rune: 0,
+						Freq: 9, Char: 0,
 						Left: &TreeNode{
-							Freq: 2, Rune: 'Z',
+							Freq: 2, Char: 'Z',
 							Left: nil, Right: nil,
 						},
 						Right: &TreeNode{
-							Freq: 7, Rune: 'K',
+							Freq: 7, Char: 'K',
 							Left: nil, Right: nil,
 						},
 					},
 					Right: &TreeNode{
-						Freq: 24, Rune: 'M',
+						Freq: 24, Char: 'M',
 						Left: nil, Right: nil,
 					},
 				},
@@ -95,7 +95,7 @@ var referenceTree = &TreeNode{
 		},
 	},
 }
-var referencePrefixMap = map[rune]byte{
+var referencePrefixMap = map[byte]byte{
 	'C': 0b1110,
 	'D': 0b101,
 	'E': 0b0,
@@ -140,7 +140,7 @@ func TestMakeTree(t *testing.T) {
 func TestPrefixMap(t *testing.T) {
 	t.Run("prefix map on example", func(t *testing.T) {
 
-		prefixMap := make(map[rune]byte, len(freqExample))
+		prefixMap := make(map[byte]byte, len(freqExample))
 
 		generatePrefixCodes(prefixMap, referenceTree, 0)
 
@@ -154,7 +154,7 @@ func TestPrefixMap(t *testing.T) {
 
 func TestFileHeader(t *testing.T) {
 	t.Run("file header on example", func(t *testing.T) {
-		prefixMap := make(map[rune]byte, len(freqExample))
+		prefixMap := make(map[byte]byte, len(freqExample))
 		generatePrefixCodes(prefixMap, referenceTree, 0)
 		header := fileHeader(prefixMap)
 
