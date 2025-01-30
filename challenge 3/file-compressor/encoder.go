@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"math"
 	"os"
 )
 
@@ -24,6 +23,26 @@ func fileHeader(prefixMap map[byte]byte) []byte {
 	buffer.WriteString(STOPSEQUENCE)
 
 	return buffer.Bytes()
+}
+
+var Pow2_16 = map[int]uint16{
+	0:  1,
+	1:  2,
+	2:  4,
+	3:  8,
+	4:  16,
+	5:  32,
+	6:  64,
+	7:  128,
+	8:  256,
+	9:  512,
+	10: 1024,
+	11: 2048,
+	12: 4096,
+	13: 8102,
+	14: 16204,
+	15: 32408,
+	16: 64816,
 }
 
 func Compress(fileName string) error {
@@ -60,23 +79,23 @@ func Compress(fileName string) error {
 		// buffer	= xxxxxxxx_1yyyyyyy
 		// if buffer reached this value, we at least have one byte we can write
 		if buffer > 128 {
-			maxBitIndex := 8
-			for {
-				if maxBitIndex < 15 && buffer > uint16(math.Pow(2, float64(maxBitIndex)+1)) {
-					maxBitIndex = maxBitIndex + 1
+			maxBitIndex := 16
+			for maxBitIndex > 8 {
+				if buffer < Pow2_16[maxBitIndex-1] {
+					maxBitIndex--
 				} else {
 					break
 				}
 			}
 			// Write 8 bit slices at a time
-			// buffer	= 000000yy_yyyyyyzz ;  maxBitIndex = 9
-			// slice	= ( 000000yy_yyyyyyzz >> ( maxBitIndex - 7 )
-			// => slice	= (xxxxxxMy_yyyyyyzz >> 2
+			// buffer	= 000000yy_yyyyyyzz ;  maxBitIndex = 10
+			// slice	= 000000yy_yyyyyyzz >> ( maxBitIndex - 7 + 1)
+			// => slice	= 000000yy_yyyyyyzz >> 2
 			// => slice	= 00000000Myyyyyyy : 8 bits
 			slice := buffer
-			slice >>= (maxBitIndex - 7)
+			slice >>= (maxBitIndex - 7 + 1)
 			// what should stay of buffer = 000000_000000zz = buffer % math.Pow(2, float64(maxBitIndex-7))
-			buffer = buffer % uint16(math.Pow(2, float64(maxBitIndex-7)))
+			buffer = buffer % Pow2_16[(maxBitIndex-7+1)]
 			err = w.WriteByte(byte(slice))
 			if err != nil {
 				return fmt.Errorf("error writing to file: %w", err)
@@ -91,21 +110,21 @@ func Compress(fileName string) error {
 		// => buffer	= 00000aaa | xxxxx_yyyyyyyy000
 		// => buffer	= xxxxx_yyyyyyyyaaa
 		case value >= 128: // 8 bit value
-			buffer = uint16(prefixMap[r]) | buffer<<8
+			buffer = uint16(value) | buffer<<8
 		case value >= 64: // 7 bit value
-			buffer = uint16(prefixMap[r]) | buffer<<7
+			buffer = uint16(value) | buffer<<7
 		case value >= 32: // 6 bit value
-			buffer = uint16(prefixMap[r]) | buffer<<6
+			buffer = uint16(value) | buffer<<6
 		case value >= 16:
-			buffer = uint16(prefixMap[r]) | buffer<<5
+			buffer = uint16(value) | buffer<<5
 		case value >= 8:
-			buffer = uint16(prefixMap[r]) | buffer<<4
+			buffer = uint16(value) | buffer<<4
 		case value >= 4:
-			buffer = uint16(prefixMap[r]) | buffer<<3
+			buffer = uint16(value) | buffer<<3
 		case value >= 2:
-			buffer = uint16(prefixMap[r]) | buffer<<2
+			buffer = uint16(value) | buffer<<2
 		default:
-			buffer = uint16(prefixMap[r]) | buffer<<1
+			buffer = uint16(value) | buffer<<1
 		}
 	}
 	if buffer > 0 {

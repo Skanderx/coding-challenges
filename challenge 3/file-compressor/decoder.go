@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"strings"
 )
@@ -26,6 +25,17 @@ func decodeHeader(data []byte) (int, map[byte]byte, error) {
 		return -1, nil, errors.New("file header without a stop sequence")
 	}
 	return startIndex, prefixMap, nil
+}
+
+var Pow2 = map[int]byte{
+	0: 1,
+	1: 2,
+	2: 4,
+	3: 8,
+	4: 16,
+	5: 32,
+	6: 64,
+	7: 128,
 }
 
 func Decompress(fileName string) error {
@@ -52,20 +62,25 @@ func Decompress(fileName string) error {
 	var byteSeq byte
 	for _, b := range data[startIndex:] {
 		var mask byte
-		for j := range 7 {
+		for j := 0; j < 8; j++ {
 			// previousSeq = o******** : o bit will overflow
-			if byteSeq/128 == 1 {
+			if byteSeq > 128 {
 				return errors.New("file content does not have prefix codes")
 			}
-			mask = byte(math.Pow(2, float64(7-j)))
-			// previousSeq = *****abc
-			// b =  aaaaaaSa and mask = 00000010
-			// nextSeq = *****abc << 1 | 000000S0 >> j (=1)
-			// => nextSeq = ****abc0 | 0000000S
-			// => nextSeq = ****abcS
+			mask = Pow2[7-j]
+			// adding b bits to byteSeq from left to right until we found a match
+			// b =  aaaaaaSa and mask = 00000010 and j = 6
+			// mask = ( mask & b ) >> ( 7 - j )
+			// mask = 000000S0 >> ( 7 - j )
+			// mask = 0000000S
+			mask &= b
+			mask >>= (7 - j)
+			// previousSeq = 00000abc
+			// nextSeq = ( previousSeq << 1 ) | mask
+			// => nextSeq = 00000abc0 | 0000000S
+			// => nextSeq = 00000abcS
 			byteSeq <<= 1
-			mask &= b >> j
-			byteSeq = byteSeq | mask
+			byteSeq |= mask
 
 			if r, ok := codePrefixMap[byteSeq]; ok {
 				// sequence complete starting a new one
