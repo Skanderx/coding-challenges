@@ -30,6 +30,7 @@ func (t *TreeNode) String() string {
 	}
 	return string(result)
 }
+
 func makeTree(freq map[byte]int) *TreeNode {
 	result := make([]*TreeNode, len(freq))
 	i := 0
@@ -47,7 +48,7 @@ func makeTree(freq map[byte]int) *TreeNode {
 		if len(result) == 1 {
 			break
 		}
-		min1 := result[0]
+		min1 := result[0] // min1.Freq <= min2.Freq
 		min2 := result[1]
 		result = result[2:]
 		joinedNode := &TreeNode{
@@ -67,7 +68,13 @@ func makeTree(freq map[byte]int) *TreeNode {
 	return result[0]
 }
 
-func generatePrefixCodes(prefixMap map[byte]byte, node *TreeNode, edge byte) {
+type Code struct {
+	Code   uint
+	Length byte
+}
+type PrefixMap map[byte]Code
+
+func generatePrefixCodes(prefixMap PrefixMap, node *TreeNode, edge Code) {
 	if node == nil {
 		return
 	}
@@ -76,16 +83,21 @@ func generatePrefixCodes(prefixMap map[byte]byte, node *TreeNode, edge byte) {
 		prefixMap[node.Char] = edge
 	}
 
-	generatePrefixCodes(prefixMap, node.Left, edge*2)
+	generatePrefixCodes(prefixMap, node.Left, Code{edge.Code * 2, edge.Length + 1})
 
-	generatePrefixCodes(prefixMap, node.Right, edge*2+1)
+	generatePrefixCodes(prefixMap, node.Right, Code{edge.Code*2 + 1, edge.Length + 1})
 
 }
 
-func generateCodePrefixMap(prefixMap map[byte]byte) map[byte]byte {
-	codePrefixMap := make(map[byte]byte, len(prefixMap))
+type CodePrefixMap = map[uint]map[byte]byte
+
+func generateCodePrefixMap(prefixMap PrefixMap) CodePrefixMap {
+	codePrefixMap := make(CodePrefixMap, len(prefixMap))
 	for r, b := range prefixMap {
-		codePrefixMap[b] = r
+		if _, ok := codePrefixMap[b.Code]; !ok {
+			codePrefixMap[b.Code] = make(map[byte]byte)
+		}
+		codePrefixMap[b.Code][b.Length] = r
 	}
 	return codePrefixMap
 }

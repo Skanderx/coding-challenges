@@ -8,34 +8,44 @@ import (
 	"strings"
 )
 
-func decodeHeader(data []byte) (int, map[byte]byte, error) {
-	prefixMap := make(map[byte]byte, 64)
-	// Header sequence = [char1 prefix1 char2 prefix2 STOPSEQUENCE]
+func decodeHeader(data []byte) (int, PrefixMap, error) {
+	prefixMap := make(PrefixMap, 64)
+	// Header sequence = [char1 length1 prefix1 char2 length2 prefix2 STOPSEQUENCE]
 	startIndex := 0
-	for i := 0; i < len(data); i += 2 {
+	i := 0
+	for i < len(data) {
 		// Search for STOPSEQUENCE
 		if i > 0 && strings.HasPrefix(string(data[i:]), STOPSEQUENCE) {
-			startIndex = i + 4
+			startIndex = i + len(STOPSEQUENCE)
 			break
 		}
+		char := data[i]
+		codeLength := byte(data[i+1])
+		i += 2 // read Char and Length
 
-		prefixMap[data[i]] = data[i+1]
+		var codeSequence uint
+
+		nbrParts := codeLength / 8
+		if codeLength%8 != 0 {
+			nbrParts++
+		}
+
+		if int(nbrParts)+i > len(data) {
+			return -1, nil, errors.New("file header is wrong")
+		}
+
+		for partIndex := byte(0); partIndex < nbrParts; partIndex++ {
+			codeSequence <<= 8
+			part := data[i]
+			i++ // read one byte of the sequence
+			codeSequence |= uint(part)
+		}
+		prefixMap[char] = Code{codeSequence, codeLength}
 	}
 	if startIndex == 0 {
 		return -1, nil, errors.New("file header without a stop sequence")
 	}
 	return startIndex, prefixMap, nil
-}
-
-var Pow2 = map[int]byte{
-	0: 1,
-	1: 2,
-	2: 4,
-	3: 8,
-	4: 16,
-	5: 32,
-	6: 64,
-	7: 128,
 }
 
 func Decompress(data []byte, f io.Writer) error {
@@ -48,33 +58,37 @@ func Decompress(data []byte, f io.Writer) error {
 
 	w := bufio.NewWriter(f)
 
-	var byteSeq byte
+	var byteSeq struct {
+		sequence uint
+		length   byte
+	}
 	for _, b := range data[startIndex:] {
-		var mask byte
-		for j := 0; j < 8; j++ {
-			// previousSeq = o******** : o bit will overflow
-			if byteSeq > 128 {
-				return errors.New("file content does not have prefix codes")
-			}
-			mask = Pow2[7-j]
+		// reading from left to right, bit by bit
+		for j := 7; j >= 0; j-- {
+			mask := byte(1) << j
+
 			// adding b bits to byteSeq from left to right until we found a match
-			// b =  aaaaaaSa and mask = 00000010 and j = 6
-			// mask = ( mask & b ) >> ( 7 - j )
-			// mask = 000000S0 >> ( 7 - j )
+			// b =  aaaaaaSa and mask = 00000010 and j = 1
+			// mask = ( mask & b ) >> j
+			// mask = 000000S0 >> j
 			// mask = 0000000S
 			mask &= b
-			mask >>= (7 - j)
+			mask >>= j
 			// previousSeq = 00000abc
 			// nextSeq = ( previousSeq << 1 ) | mask
 			// => nextSeq = 00000abc0 | 0000000S
 			// => nextSeq = 00000abcS
-			byteSeq <<= 1
-			byteSeq |= mask
+			byteSeq.sequence <<= 1
+			byteSeq.sequence |= uint(mask)
+			byteSeq.length++
 
-			if r, ok := codePrefixMap[byteSeq]; ok {
+			if r, ok := codePrefixMap[byteSeq.sequence][byteSeq.length]; ok {
 				// sequence complete starting a new one
 				w.WriteByte(r)
-				byteSeq = 0
+				byteSeq.sequence = 0
+				byteSeq.length = 0
+			} else if byteSeq.length == 32 {
+				return errors.New("file content does not have prefix codes")
 			}
 		}
 	}

@@ -12,37 +12,34 @@ const (
 )
 
 // fileHeader returns the header of the compressed file
-// headerformat: char1 prefix1 char2 prefix2 ... charn prefixn STOPSEQUENCE
-func fileHeader(prefixMap map[byte]byte) []byte {
+// headerformat: char1 length1 prefix1 char2 length2 prefix2 ... charn lengthn prefixn STOPSEQUENCE
+func fileHeader(prefixMap PrefixMap) []byte {
 
 	var buffer bytes.Buffer
 	for k, v := range prefixMap {
+		nbrParts := v.Length / 8
+		if v.Length%8 != 0 {
+			nbrParts++
+		}
+		parts := make([]byte, nbrParts)
+
+		for i := range parts {
+			// given the uneven bit sequence : XX_XXXX_YYYY_YYYY_ZZZZ_ZZZZ ; length = 22
+			// we cut it into  8 bits chunks like so
+			// Part i = 0 : 00XX_XXXX = byte(v.Code >> 16 )
+			// Part i = 1 : YYYY_YYYY = byte(v.Code >> 8 )
+			// Part i = 2 : ZZZZ_ZZZZ = byte((v.Code >> 0 ))
+			// shift right length = max( 8 * (nbrParts - i - 1) , 0)
+			parts[i] = byte((v.Code >> max(8*(int(nbrParts)-1-i), 0)))
+		}
+
 		buffer.WriteByte(k)
-		buffer.WriteByte(v)
+		buffer.WriteByte(v.Length)
+		buffer.WriteString(string(parts))
 	}
 	buffer.WriteString(STOPSEQUENCE)
 
 	return buffer.Bytes()
-}
-
-var Pow2_16 = map[int]uint16{
-	0:  1,
-	1:  2,
-	2:  4,
-	3:  8,
-	4:  16,
-	5:  32,
-	6:  64,
-	7:  128,
-	8:  256,
-	9:  512,
-	10: 1024,
-	11: 2048,
-	12: 4096,
-	13: 8102,
-	14: 16204,
-	15: 32408,
-	16: 64816,
 }
 
 func Compress(data []byte, f io.Writer) error {
@@ -52,8 +49,8 @@ func Compress(data []byte, f io.Writer) error {
 	// Make Huffman coding tree
 	root := makeTree(frequencies)
 
-	prefixMap := make(map[byte]byte, len(frequencies))
-	generatePrefixCodes(prefixMap, root, 0)
+	prefixMap := make(PrefixMap, len(frequencies))
+	generatePrefixCodes(prefixMap, root, Code{0, 0})
 
 	_, err := f.Write(fileHeader(prefixMap))
 	if err != nil {
@@ -64,47 +61,24 @@ func Compress(data []byte, f io.Writer) error {
 	// Writing 8 bits at a time; but having space for at least two
 	var buffer struct {
 		maxBitIndex int
-		buffer      uint16
+		buffer      uint
 	}
 
 	for _, r := range data {
 		// Adding prefix_Code in queue to be written
 		// Solution without google:
 		value := prefixMap[r]
-		switch {
+
 		// example
 		// 	buffer	= 00000aaa | ( xxxxxxxx_yyyyyyyy << 3 )
 		// => buffer	= 00000aaa | xxxxx_yyyyyyyy000
 		// => buffer	= xxxxx_yyyyyyyyaaa
-		case value >= 128: // 8 bit value
-			buffer.buffer = uint16(value) | buffer.buffer<<8
-			buffer.maxBitIndex += 8
-		case value >= 64: // 7 bit value
-			buffer.buffer = uint16(value) | buffer.buffer<<7
-			buffer.maxBitIndex += 7
-		case value >= 32: // 6 bit value
-			buffer.buffer = uint16(value) | buffer.buffer<<6
-			buffer.maxBitIndex += 6
-		case value >= 16:
-			buffer.buffer = uint16(value) | buffer.buffer<<5
-			buffer.maxBitIndex += 5
-		case value >= 8:
-			buffer.buffer = uint16(value) | buffer.buffer<<4
-			buffer.maxBitIndex += 4
-		case value >= 4:
-			buffer.buffer = uint16(value) | buffer.buffer<<3
-			buffer.maxBitIndex += 3
-		case value >= 2:
-			buffer.buffer = uint16(value) | buffer.buffer<<2
-			buffer.maxBitIndex += 2
-		default:
-			buffer.buffer = uint16(value) | buffer.buffer<<1
-			buffer.maxBitIndex += 1
-		}
+		buffer.buffer = uint(value.Code) | buffer.buffer<<value.Length
+		buffer.maxBitIndex += int(value.Length)
 
 		// buffer	= xxxxxxxx_1yyyyyyy
 		// if buffer reached this value, we at least have one byte we can write
-		if buffer.maxBitIndex > 8 {
+		for buffer.maxBitIndex > 8 {
 
 			// Write 8 bit slices at a time
 			// buffer	= 000000yy_yyyyyyzz ;  maxBitIndex = 10
@@ -117,12 +91,14 @@ func Compress(data []byte, f io.Writer) error {
 				return fmt.Errorf("error writing to file: %w", err)
 			}
 			// what should stay in buffer = 000000_000000zz = buffer % math.Pow(2, float64(maxBitIndex-7))
-			buffer.buffer = buffer.buffer % Pow2_16[(buffer.maxBitIndex-7+1)]
+			buffer.buffer = buffer.buffer % (1 << (buffer.maxBitIndex - 7 + 1))
 			buffer.maxBitIndex -= 8
 		}
 	}
 	if buffer.maxBitIndex > 0 {
-		slice := byte(buffer.buffer)
+		// byte rest = 0000abcd // maxBitIndex = 4
+		// so we shift left by (8-index) 4 bits to get abcd0000
+		slice := byte(buffer.buffer) << (8 - buffer.maxBitIndex)
 		err = w.WriteByte(slice)
 		if err != nil {
 			return fmt.Errorf("error writing to file: %w", err)
