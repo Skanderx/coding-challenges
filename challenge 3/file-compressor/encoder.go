@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"os"
+	"io"
 )
 
 const (
@@ -45,13 +45,8 @@ var Pow2_16 = map[int]uint16{
 	16: 64816,
 }
 
-func Compress(fileName string) error {
+func Compress(data []byte, f io.Writer) error {
 
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		return fmt.Errorf("error reading file: %w", err)
-
-	}
 	// Count frequency of characters
 	frequencies := countFrequency(data)
 	// Make Huffman coding tree
@@ -60,12 +55,7 @@ func Compress(fileName string) error {
 	prefixMap := make(map[byte]byte, len(frequencies))
 	generatePrefixCodes(prefixMap, root, 0)
 
-	f, err := os.Create("./" + fileName + "_compressed.txt")
-	if err != nil {
-		return fmt.Errorf("error creating file: %w", err)
-	}
-	defer f.Close()
-	_, err = f.Write(fileHeader(prefixMap))
+	_, err := f.Write(fileHeader(prefixMap))
 	if err != nil {
 		return fmt.Errorf("error writing file header: %w", err)
 	}
@@ -121,7 +111,7 @@ func Compress(fileName string) error {
 			// slice	= 000000yy_yyyyyyzz >> ( maxBitIndex - 7 + 1)
 			// => slice	= 000000yy_yyyyyyzz >> 2
 			// => slice	= 00000000Myyyyyyy : 8 bits
-			slice := buffer.buffer >> (buffer.maxBitIndex - 7 + 1)
+			slice := buffer.buffer >> (buffer.maxBitIndex - 8)
 			err = w.WriteByte(byte(slice))
 			if err != nil {
 				return fmt.Errorf("error writing to file: %w", err)
@@ -132,7 +122,7 @@ func Compress(fileName string) error {
 		}
 	}
 	if buffer.maxBitIndex > 0 {
-		slice := byte(buffer.buffer >> (buffer.maxBitIndex - 7 + 1))
+		slice := byte(buffer.buffer)
 		err = w.WriteByte(slice)
 		if err != nil {
 			return fmt.Errorf("error writing to file: %w", err)

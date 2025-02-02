@@ -8,30 +8,51 @@ import (
 	"path/filepath"
 )
 
-func main() {
-	// Read file
-	args := os.Args
-	fileName := filepath.Clean(args[len(args)-1])
+var flags = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+var decompress bool
 
-	f := flag.NewFlagSet("wordcount", flag.ContinueOnError)
-	decompress := f.Bool("d", false, "decompress file")
-	err := f.Parse(args[1:])
+func init() {
+	flags.BoolVar(&decompress, "d", false, "decompress file")
+}
+
+func main() {
+
+	if len(os.Args) < 2 {
+		fmt.Println("Not enough arguments")
+		return
+	}
+
+	flags.Parse(os.Args[1:])
+
+	args := os.Args[len(os.Args)-2:]
+	fileNameIn := filepath.Clean(args[0])
+	fileNameOut := filepath.Clean(args[1])
+
+	dataIn, err := os.ReadFile(fileNameIn)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	if decompress != nil && *decompress {
-		err := compressor.Decompress(fileName)
+
+	fileOut, err := os.Create(fileNameOut)
+	if err != nil {
+		fmt.Println(fmt.Errorf("error creating file: %w", err))
+	}
+	defer fileOut.Close()
+
+	if decompress {
+		err = compressor.Decompress(dataIn, fileOut)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		return
-	}
-
-	err = compressor.Compress(fileName)
-	if err != nil {
-		fmt.Println(err)
+	} else {
+		err = compressor.Compress(dataIn, fileOut)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 
 }

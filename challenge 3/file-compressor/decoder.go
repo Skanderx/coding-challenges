@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 )
 
@@ -38,24 +38,13 @@ var Pow2 = map[int]byte{
 	7: 128,
 }
 
-func Decompress(fileName string) error {
+func Decompress(data []byte, f io.Writer) error {
 
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		return fmt.Errorf("error reading file: %w", err)
-
-	}
 	startIndex, prefixMap, err := decodeHeader(data)
 	if err != nil {
 		return fmt.Errorf("file cannot be decompressed: %w", err)
 	}
 	codePrefixMap := generateCodePrefixMap(prefixMap)
-
-	f, err := os.Create("./" + fileName + "decompressed.txt")
-	if err != nil {
-		return fmt.Errorf("error creating file: %w", err)
-	}
-	defer f.Close()
 
 	w := bufio.NewWriter(f)
 
