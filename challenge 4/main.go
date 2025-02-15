@@ -11,9 +11,11 @@ import (
 
 var flags = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 var fields int // []int
+var delimiter string
 
 func init() {
 	flags.IntVar(&fields, "f", 1, "Fields to cut")
+	flags.StringVar(&delimiter, "d", "\t", "Delimiter")
 }
 
 func main() {
@@ -30,5 +32,6 @@ func main() {
 		fmt.Println("Fields must be greater than 0")
 		return
 	}
-	fmt.Println(cut.Fields(dataIn, fields-1))
+
+	fmt.Println(cut.Fields(dataIn, fields-1, []rune(delimiter)[0]))
 }
