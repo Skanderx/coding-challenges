@@ -1,9 +1,10 @@
 package main
 
 import (
+	"bufio"
+	"cut/cut-tool"
 	"flag"
 	"fmt"
-	"main/cut"
 	"strconv"
 	"strings"
 
@@ -23,19 +24,32 @@ func splitFields(fields string) []string {
 	if unquotedFields := strings.Trim(fields, "\""); unquotedFields != fields {
 		return strings.Split(unquotedFields, " ")
 	}
+
 	return strings.Split(fields, ",")
 }
 
 func main() {
 	flags.Parse(os.Args[1:])
 
-	fileName := filepath.Clean(os.Args[len(os.Args)-1])
-
-	dataIn, err := os.ReadFile(fileName)
-	if err != nil {
-		fmt.Println(err)
-		return
+	dataIn := make([]byte, 0)
+	args := os.Args
+	fileName := ""
+	if (len(args) > 1 && args[len(args)-1][0] == '-') || len(args) == 1 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			dataIn = append(dataIn, scanner.Bytes()...)
+			dataIn = append(dataIn, '\n')
+		}
+		dataIn = dataIn[:len(dataIn)-1]
+	} else {
+		fileName = filepath.Clean(args[len(args)-1])
+		var err error
+		dataIn, err = os.ReadFile(fileName)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	if len(fields) == 0 {
 		fmt.Println("Fields must be greater than 0")
 		return

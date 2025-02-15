@@ -1,0 +1,12 @@
+#!/bin/bash
+
+go build .
+
+if [ "$1" == "1" ]; then
+    tail -n5 ./challenge-cut/fourchords.csv | ./cut -f="\"1 2\"" -d=,
+elif [ "$1" == "2" ]; then
+    tail -n5 ./challenge-cut/fourchords.csv | ./cut -d=, -f="\"1 2\"" -
+else
+    echo "Please provide argument 1 or 2 to select which command to run"
+    exit 1
+fi
